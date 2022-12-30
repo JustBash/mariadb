@@ -1,0 +1,150 @@
+#/bin/bash
+
+reset
+
+mariadb_home=/usr/local/mariadb
+url=https://archive.mariadb.org/mariadb-10.11.0/bintar-linux-systemd-x86_64
+
+if ! dpkg -s cmake > /dev/null; then
+    apt install cmake -y
+fi
+
+if ! dpkg -s libncurses5 > /dev/null; then
+    apt install libncurses5 -y
+fi
+
+reset
+
+checkMariaDB() {
+    if [ -d $mariadb_home ]; then
+        echo "MariaDB is already installed!"
+        sleep 2
+        echo "Setup new? [y/N]"
+        read setupNew
+
+        clear
+
+        if ! [ $setupNew == "y" ]; then
+            clear
+            exit
+        fi
+    fi
+
+    if ! [ -d $mariadb_home ]; then
+        echo "MariaDB is not installed!"
+        sleep 2
+        echo "Setup? [y/N]"
+        read setup
+
+        if ! [ $setup == "y" ]; then
+            clear
+            exit
+        fi
+    fi
+}
+
+startMariaDB() {
+    echo "Start MariaDB? [y/N]"
+    read startMariaDB
+
+    if [ $startMariaDB == "y" ]; then
+        $mariadb_home/support-files/mysql.server start
+    fi
+
+    exit
+}
+
+link() {
+    if ! [ -d /usr/local/mysql ]; then
+        ln -s $mariadb_home /usr/local/mysql
+    fi
+
+    if ! [ -f /usr/bin/mariadb ]; then
+        ln -st /usr/bin $mariadb_home/bin/mariadb
+    fi
+
+    if ! [ -f /usr/bin/mariadb-dump ]; then
+        ln -st /usr/bin $mariadb_home/bin/mariadb-dump
+    fi
+
+    if ! [ -f /usr/bin/mariadb-admin ]; then
+        ln -st /usr/bin $mariadb_home/bin/mariadb-admin
+    fi
+
+    if ! [ -f /usr/bin/mariadb-secure-installation ]; then
+        ln -st /usr/bin $mariadb_home/bin/mariadb-secure-installation
+    fi
+}
+
+setupMariaDB() {
+    if ! [ -d $mariadb_home ]; then
+        mkdir $mariadb_home
+    fi
+
+    clear
+
+    if (
+        ! [ -f mariadb.tar ] &&
+        ! [ -f mariadb.tar.gz ] &&
+        ! [ -f mariadb-10.11.0-linux-systemd-x86_64.tar ] &&
+        ! [ -f mariadb-10.11.0-linux-systemd-x86_64.tar.gz ]
+    ); then
+        wget $url/mariadb-10.11.0-linux-systemd-x86_64.tar.gz -O mariadb.tar.gz
+    fi
+
+    clear
+
+    if ! [ -f mariadb.tar ]; then
+        gunzip mariadb.tar.gz
+    fi
+
+    if (! [ -d mariadb ] && ! [ -d mariadb-10.11.0-linux-systemd-x86_64 ]); then
+        tar xvf mariadb.tar
+    fi
+
+    mv mariadb-10.11.0-linux-systemd-x86_64/* $mariadb_home
+    rm -r mariadb-10.11.0-linux-systemd-x86_64
+
+    link
+
+    $mariadb_home/scripts/mariadb-install-db
+    mv data $mariadb_home
+
+    chmod -R 777 $mariadb_home
+
+    adduser mysql --no-create-home --disabled-login
+
+    startMariaDB
+
+    mariadb-secure-installation
+
+    exit
+}
+
+if ! [ $1 ]; then
+    echo "No argument specified!"
+    echo "Additionally use either setup, start, restart or stop"
+    exit
+fi
+
+if [ $1 == "setup" ]; then
+
+    rm -r $mariadb_home/*
+    setupMariaDB
+elif [ $1 == "link" ]; then
+    link
+    exit
+elif [ $1 == "setup_bin" ]; then
+    setupBins
+elif [ $1 == "start" ]; then
+    startMariaDB
+elif [ $1 == "restart" ]; then
+    checkMariaDB
+    $mariadb_home/support-files/mysql.server restart
+elif [ $1 == "stop" ]; then
+    checkMariaDB
+    $mariadb_home/support-files/mysql.server stop
+else
+    echo "This command do not exists"
+    exit
+fi
