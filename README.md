@@ -3,8 +3,10 @@
 MDB is a script that can compile, start, restart and shutdown MariaDB
 
 ## Get
+```
 wget https://github.com/JustBash/mariadb/raw/master/mdb -O /usr/bin/mdb
 chmod +x /usr/bin/mdb
+```
 
 ## Control
 
